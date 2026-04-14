@@ -1,83 +1,110 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Link, useSearchParams } from "react-router-dom";
+import React, { useState } from "react"
+import { Link, useSearchParams } from "react-router-dom"
+import { getVans } from "../../api"
 
-const swCharacters = [
-  { name: "Luke Skywalker", type: "Jedi" },
-  { name: "Darth Vader", type: "Sith" },
-  { name: "Emperor Palpatine", type: "Sith" },
-  { name: "Yoda", type: "Jedi" }
-]
+export default function Vans() {
+    const [searchParams, setSearchParams] = useSearchParams()
+    const [vans, setVans] = useState([])
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = React.useState(null)
 
-function HomePage() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const typeFilter = searchParams.get("type")
+    const typeFilter = searchParams.get("type")
 
-  const displayedCharacters = typeFilter
-    ? swCharacters.filter(char => char.type.toLowerCase() === typeFilter)
-    : swCharacters
+    React.useEffect(() => {
+        async function loadVans() {
+            setLoading(true)
+            try {
+                const data = await getVans()
+                setVans(data)
+            } catch (err) {
+                setError(err);
+            } finally {
+                setLoading(false)
+            }
+        }
+        
+        loadVans()
+    }, [])
 
-  const charEls = displayedCharacters
-    .map(char => (
-      <div key={char.name}>
-        <h3
-          style={{ color: char.type.toLowerCase() === "jedi" ? "blue" : "red" }}
-        >
-          Name: {char.name}
-        </h3>
-        <p>Type: {char.type}</p>
-        <hr />
-      </div>
+    const displayedVans = typeFilter
+        ? vans.filter(van => van.type === typeFilter)
+        : vans
+
+    const vanElements = displayedVans.map(van => (
+        <div key={van.id} className="van-tile">
+            <Link
+                to={van.id}
+                state={{
+                    search: `?${searchParams.toString()}`,
+                    type: typeFilter
+                }}
+            >
+                <img src={van.imageUrl} />
+                <div className="van-info">
+                    <h3>{van.name}</h3>
+                    <p>${van.price}<span>/day</span></p>
+                </div>
+                <i className={`van-type ${van.type} selected`}>{van.type}</i>
+            </Link>
+        </div>
     ))
 
-  function genNewSearchParamString(key, value) {
-    const sp = new URLSearchParams(searchParams)
-    if (value === null) {
-      sp.delete(key)
-    } else {
-      sp.set(key, value)
+    function handleFilterChange(key, value) {
+        setSearchParams(prevParams => {
+            if (value === null) {
+                prevParams.delete(key)
+            } else {
+                prevParams.set(key, value)
+            }
+            return prevParams
+        })
     }
-    return `?${sp.toString()}`
-  }
+    
+    if (loading) {
+        return <h1>Loading...</h1>
+    }
+    
+    if (error) {
+        return <h1>There was an error: {error.message}</h1>
+    }
 
-  function handleFilterChange(key, value) {
-    setSearchParams(prevParams => {
-      if (value === null) {
-        prevParams.delete(key)
-      } else {
-        prevParams.set(key, value)
-      }
-      return prevParams
-    })
-  }
+    return (
+        <div className="van-list-container">
+            <h1>Explore our van options</h1>
+            <div className="van-list-filter-buttons">
+                <button
+                    onClick={() => handleFilterChange("type", "simple")}
+                    className={
+                        `van-type simple 
+                        ${typeFilter === "simple" ? "selected" : ""}`
+                    }
+                >Simple</button>
+                <button
+                    onClick={() => handleFilterChange("type", "luxury")}
+                    className={
+                        `van-type luxury 
+                        ${typeFilter === "luxury" ? "selected" : ""}`
+                    }
+                >Luxury</button>
+                <button
+                    onClick={() => handleFilterChange("type", "rugged")}
+                    className={
+                        `van-type rugged 
+                        ${typeFilter === "rugged" ? "selected" : ""}`
+                    }
+                >Rugged</button>
 
-  return (
-    <main>
-      <h2>Home</h2>
-      <div>
-        <Link to={genNewSearchParamString("type", "jedi")}>Jedi</Link>
-        <Link to={genNewSearchParamString("type", "sith")}>Sith</Link>
-        <Link to={genNewSearchParamString("type", null)}>Clear</Link>
-      </div>
-      <div>
-        <button onClick={() => handleFilterChange("type", "jedi")}>Jedi</button>
-        <button onClick={() => handleFilterChange("type", "sith")}>Sith</button>
-        <button onClick={() => handleFilterChange("type", null)}>Clear</button>
-      </div>
-      <hr />
-      {charEls}
-    </main>
-  );
+                {typeFilter ? (
+                    <button
+                        onClick={() => handleFilterChange("type", null)}
+                        className="van-type clear-filters"
+                    >Clear filter</button>
+                ) : null}
+
+            </div>
+            <div className="van-list">
+                {vanElements}
+            </div>
+        </div>
+    )
 }
-
-function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/characters" element={<HomePage />} />
-      </Routes>
-    </BrowserRouter>
-  )
-}
-
-ReactDOM.createRoot(document.getElementById("root")).render(<App />)
